@@ -11,27 +11,10 @@ def rescore_func(x):
 
 class SubjectivityDataset(Dataset):
     """Base class for all datasets of subjective properties.
-    A StructuredDataset requires data to be stored in :obj:`numpy.ndarray`
+    A SubjectivityDataset requires data to be stored in :obj:`numpy.ndarray`
     objects with :obj:`~numpy.dtype` as :obj:`~numpy.float64`.
     Attributes:
-        features (numpy.ndarray): Dataset features for each instance.
-        labels (numpy.ndarray): Generic label corresponding to each instance
-            (could be ground-truth, predicted, cluster assignments, etc.).
-        
-        feature_names (list(str)): Names describing each dataset feature.
-        label_names (list(str)): Names describing each label.
-        
-        instance_names (list(str)): Indentifiers for each instance. Sequential
-            integers by default.
-        ignore_fields (set(str)): Attribute names to ignore when doing equality
-            comparisons. Always at least contains `'metadata'`.
-        metadata (dict): Details about the creation of this dataset. For
-            example::
-                {
-                    'transformer': 'Dataset.__init__',
-                    'params': kwargs,
-                    'previous': None
-                }
+        TO FILL IN
     """
 
     def __init__(self, samples, annotations, custom_preprocessing=None, metadata=None):
@@ -71,43 +54,46 @@ class SubjectivityDataset(Dataset):
         # always ignore metadata and ignore_fields
         self.ignore_fields = {'metadata', 'ignore_fields'}
 
-
+        # Compute the different scores later used for computing the fairness metrics.
         self.samples, self.annotations = self.compute_scores(self.samples, self.annotations)
 
+        # Merge the data into a unique dataset structure.
         self.dataset = self.annotations.merge(self.samples[['rev_id', 'comment']], on='rev_id', how='left')
-
 
         # sets metadata
         super(SubjectivityDataset, self).__init__(df=self.dataset, metadata=metadata)
 
     
     def compute_scores(self, comments, annotations):
-        ## Compute the comment ambiguity
-        # Get the comments average toxicity score
+        ### Compute the different scores exploited by the fairness metrics.
+        ## Compute the comments' majority vote, average toxicity score and ambiguity.
+        ## Compute the annotator average disagreement with the majority vote.
+        ## Compute the annotations' popularity among the other annotations.
         
-        comments = comments.reset_index().merge(annotations.groupby('rev_id')['toxicity'].mean().to_frame('average_toxicity').reset_index(), on='rev_id', how='left')
-        # Get the comment percentage of agreement
-        comments['sample_agreement'] = comments['average_toxicity'].apply(lambda x: rescore_func(x))
+        comments = comments.reset_index().merge(annotations.groupby('rev_id')['label'].mean().to_frame('average_label').reset_index(), on='rev_id', how='left')
+        
+        # Get the comments' ambiguity (percentage of agreement in the annotations)
+        comments['sample_agreement'] = comments['average_label'].apply(lambda x: rescore_func(x))
         # Propagate to the annotations
         annotations = annotations.merge(comments[['rev_id', 'sample_agreement']], on='rev_id', how='left')
 
-        # Annotators ADR
-        annotations['MV'] = annotations.groupby(['rev_id'])['toxicity'].transform(lambda x : (x.mean() >= 0.5).astype(int))
-        annotations['average_toxicity'] = annotations.groupby(['rev_id'])['toxicity'].transform(lambda x : x.mean())
-        annotations['disaggreement_bin'] = 1 - (annotations['toxicity'] == annotations['MV']).astype(int)
+        # Get the majority vote associated to each sample
+        annotations['MV'] = annotations.groupby(['rev_id'])['label'].transform(lambda x : (x.mean() >= 0.5).astype(int))
+
+        # Get the annotators' average disagreement rate (ADR) with the majority vote
+        #annotations['average_label'] = annotations.groupby(['rev_id'])['label'].transform(lambda x : x.mean())
+        annotations['disaggreement_bin'] = 1 - (annotations['label'] == annotations['MV']).astype(int)
         annotations['annotator_ADR'] = annotations.groupby('worker_id')['disaggreement_bin'].transform(lambda x: x.mean())#.reset_index()
+        annotations = annotations.drop(columns=['disaggreement_bin'])
 
         # Annotation popularity
-        annotations['popularity_number'] = annotations.groupby(['rev_id', 'toxicity'])['rev_id'].transform(lambda x: len(x))
+        annotations['popularity_number'] = annotations.groupby(['rev_id', 'label'])['rev_id'].transform(lambda x: len(x))
         annotations['popularity_percentage'] = annotations.groupby(['rev_id'])['popularity_number'].transform(lambda x: x/len(x))#x['popularity_percentage']/len(x))
         annotations = annotations.drop(columns=['popularity_number'])
 
         
         return comments, annotations
 
-    
-
-    
 
     def export_dataset(self, export_metadata=False):
         """

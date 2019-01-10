@@ -49,18 +49,17 @@ class ToxicityDataset(SubjectivityDataset):
             import sys
             sys.exit(1)
 
-
-        ### Merge the tables
-
-
-        ### Clean the data
-        # Data preparing
-        
+        ### Data preparation
+        # Data samples preprocessing        
         comments, annotations, worker_demo = self.clean_data(comments, annotations, worker_demo)
+        # Rename the columns to general labels
+        comments = comments.rename(columns={'toxicity': 'label', 'toxicity_score': 'label_score'})
+        annotations = annotations.rename(columns={'toxicity': 'label', 'toxicity_score': 'label_score'})
+
+        # Data labels and properties computation
         super(ToxicityDataset, self).__init__(samples=comments, annotations=annotations,
             custom_preprocessing=custom_preprocessing, 
             metadata=metadata)
-
 
 
     def normalize_text(self, text):
@@ -109,10 +108,11 @@ class ToxicityDataset(SubjectivityDataset):
         #annotations = annotations.drop('toxicity_label_0',1)
         
         #### Add all the information to the annotations
-        ## Add the worker demographics
+        # Add the worker demographics
         annotations = annotations.reset_index().merge(worker_demo, on='worker_id', how='left').set_index(annotations.index.names)
-        ### Remove the unknown demographics and the demographics with a NaN. And put them ina general test set.
+        # Remove the unknown demographics and the demographics with a NaN. And put them in a general test set.
         annotations['general_split'] = 'train'
         annotations.loc[((annotations['pop_label'].isnull()) | (annotations['pop_label'].str.contains('nan')) ),'general_split'] = 'test'
+        
         return comments, annotations, worker_demo
 
