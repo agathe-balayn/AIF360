@@ -13,6 +13,7 @@ import pandas as pd
 import sklearn.metrics as sk_met
 import matplotlib.pyplot as plt
 
+import os
 
 import operator
 
@@ -72,7 +73,7 @@ def annotation_plot_color(value):
 	else:
 	    return 'w'
 
-def plot_fairness(data, metric, bin_name=''):
+def plot_fairness(data, metric, bin_name='', image_folder=''):
 	yticks = list(data.index.values)
 
 	# Plot the bins
@@ -92,6 +93,13 @@ def plot_fairness(data, metric, bin_name=''):
 	    text = ax.text(0.5, i+0.5, np.round(data[i][0], 2), ha="center", va="center", color=annotation_plot_color(data[i][0]))
 
 	fig.set_figwidth(4)	
+
+	# Save the figure
+	path_figure = 'fig_' + metric + '_' + bin_name + '.png'
+	if image_folder:
+		path_figure = '../examples/' + image_folder + '/' + path_figure
+		print('Figure ', path_figure, ' saved.')
+	plt.savefig(path_figure,bbox_inches='tight')
 
 
 def define_fairness_bins(filtering_value, data_filtering_col, comparison_op, data, number_bins):
@@ -155,7 +163,7 @@ class InclusivenessLabelDatasetMetric(Metric):
 
 
 	
-	def compute_metric(self, prediction_col, GT_col, fairness_criteria, eval_metrics, number_bins=None, filtering_value=None, characterization=False):
+	def compute_metric(self, prediction_col, GT_col, fairness_criteria, eval_metrics, number_bins=None, filtering_value=None, characterization=False, image_folder=''):
 
 		# Check whether the predictions of the model are contained in the dataset.  
 		if (prediction_col not in self.dataset.dataset.columns) or (GT_col not in self.dataset.dataset.columns):
@@ -196,9 +204,13 @@ class InclusivenessLabelDatasetMetric(Metric):
 		
 		# Plot the bins
 		if characterization: # Output the characterizations plots per metric
+			# If there is a specified folder to save the pictures, verify whether it already exists.
+			if image_folder:
+				if not os.path.exists('../examples/' + image_folder):
+				    os.makedirs('../examples/' + image_folder)
 			for metric in eval_metrics: 
 				# Plot the distribution
-				plot_fairness(data, metric, bin_name=fairness_criteria)
+				plot_fairness(data, metric, fairness_criteria, image_folder)
 
 		# Compute the fairness values from the bins
 		dict_results = {}
