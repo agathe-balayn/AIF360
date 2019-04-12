@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
+
 from aif360.datasets import StructuredDataset
 
 
@@ -22,7 +24,7 @@ class BinaryLabelDataset(StructuredDataset):
         self.unfavorable_label = float(unfavorable_label)
 
         super(BinaryLabelDataset, self).__init__(**kwargs)
-
+   
     def validate_dataset(self):
         """Error checking and type validation.
 

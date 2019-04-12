@@ -2,6 +2,8 @@ from __future__ import absolute_import
 
 import os
 
+import numpy as np
+
 import pandas as pd
 
 from aif360.datasets.subjectivity_dataset import SubjectivityDataset
@@ -21,21 +23,32 @@ default_mappings = {
 }
 
 
+
+
 class ToxicityDataset(SubjectivityDataset):
     """Wikipedia Toxicity Dataset.
     See :file:`aif360/data/raw/toxicity/README.md`.
     """
 
-    def __init__(self, custom_preprocessing=default_preprocessing,
-                 metadata=default_mappings):
+
+    def __init__(self, label_name='toxicity', #favorable_classes=[1],
+                 protected_attribute_names=['gender', 'english_first_language', 'age_group', 'education', 'rev_id', 'worker_id'],
+                 #privileged_classes=[['male'], lambda x: x >= 25],
+                 instance_weights_name=None,
+                 categorical_features=[],
+                 features_to_keep=[], features_to_drop=[],
+                 na_values=[], custom_preprocessing=default_preprocessing,
+                 metadata=default_mappings,
+                 mapping_categorical_protected=(('gender',('female','male', 'other', 'nan')), ('age_group',('Under 18', '18-30', '30-45', '45-60', 'Over 60', 'nan')), ('education',('none', 'hs', 'some', 'bachelors', 'masters', 'professional', 'doctorate', 'nan')))):
 
         filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 '..', 'data', 'raw', 'toxicity')
 
         ### Read the documents    
         try:
-            comments = pd.read_csv(filepath + '/toxicity_annotated_comments.tsv', sep = '\t', dtype={'rev_id':int, 'comment':str}, index_col = 0)
+            print("Load toxicity dataset")
             annotations = pd.read_csv(filepath + '/toxicity_annotations.tsv',  sep = '\t', index_col=0)
+            annotations = annotations.head(int(len(annotations)/20)) ## Reduce the size for testing
             worker_demo = pd.read_csv(filepath + '/toxicity_worker_demographics.tsv', sep='\t')
         except IOError as err:
             print("IOError: {}".format(err))
@@ -50,69 +63,48 @@ class ToxicityDataset(SubjectivityDataset):
             sys.exit(1)
 
         ### Data preparation
-        # Data samples preprocessing        
-        comments, annotations, worker_demo = self.clean_data(comments, annotations, worker_demo)
-        # Rename the columns to general labels
-        comments = comments.rename(columns={'toxicity': 'label', 'toxicity_score': 'label_score'})
-        annotations = annotations.rename(columns={'toxicity': 'label', 'toxicity_score': 'label_score'})
-
+        # Data samples preprocessing       
+        print("Merge the different datasets") 
+        annotations = self.clean_data(annotations, worker_demo, mapping_categorical_protected)
+        
+        protected_attribute_names = protected_attribute_names + ['pop_label']
         # Data labels and properties computation
-        super(ToxicityDataset, self).__init__(samples=comments, annotations=annotations,
-            custom_preprocessing=custom_preprocessing, 
-            metadata=metadata)
+        super(ToxicityDataset, self).__init__(df=annotations, label_name=label_name,
+            protected_attribute_names=protected_attribute_names,
+            instance_weights_name=instance_weights_name,
+            categorical_features=categorical_features,
+            features_to_keep=features_to_keep,
+            features_to_drop=features_to_drop, na_values=na_values,
+            custom_preprocessing=custom_preprocessing, metadata=metadata)
 
-
-    def normalize_text(self, text):
-        tokenizer = RegexpTokenizer(r'\w+')
-        stopword_set = set(stopwords.words('english'))
-        stemmer = PorterStemmer()
-        # Convert text to lower-case and strip punctuation/symbols from words
-        norm_text = text.lower()
-        # Replace breaks with spaces
-        norm_text = norm_text.replace('<br />', ' ')
-        # Pad punctuation with spaces on both sides
-        for char in ['.', '"', ',', '(', ')', '!', '?', ';', ':']:
-            norm_text = norm_text.replace(char, ' ' + char + ' ') 
-        # Tokenize
-        norm_text = tokenizer.tokenize(norm_text)
-        # Remove stop words
-        norm_text = [w for w in norm_text if not w in stopword_set]
-        #norm_text = list(set(norm_text).difference(stopword_set))
-        norm_text = " ".join(norm_text)
-        #print(norm_text)
-        # Stem words
-        #norm_text = [stemmer.stem(i) for i in norm_text]
-        # remove empty
-        #norm_text = [i for i in norm_text if len(i) > 1]
-        return norm_text
 
     
-    def clean_data(self, comments, annotations, worker_demo):
-        comments['comment'] = comments['comment'].apply(lambda x: x.replace("NEWLINE_TOKEN", " "))
-        comments['comment'] = comments['comment'].apply(lambda x: x.replace("TAB_TOKEN", " "))
-        comments['comment'] = comments['comment'].apply(lambda x: self.normalize_text(x))
-        comments = comments.drop('year', 1)
-        comments = comments.drop('logged_in', 1)
-        comments = comments.drop('ns', 1)
-        comments = comments.drop('sample', 1)
-        comments = comments.drop('split', 1)
-        # Preprocess workers
-        worker_demo['pop_label'] = worker_demo[['gender', 'age_group', 'education']].apply(lambda x: ' '.join([str(x['gender']),str(x['age_group']), str(x['education'])]), axis=1)
-        # Clean annotations
-        #annotations = annotations.drop('comment',1)
-        #annotations = annotations.drop('year',1)
-        #annotations = annotations.drop('logged_in',1)
-        #annotations = annotations.drop('ns',1)
-        #annotations = annotations.drop('sample',1)
-        #annotations = annotations.drop('split',1)
-        #annotations = annotations.drop('toxicity_label_0',1)
+    def clean_data(self, annotations, worker_demo, mapping_categorical_protected):
         
+        # Preprocess workers
+        worker_demo = worker_demo.replace(np.NaN, 'nan')
+ 
+         
         #### Add all the information to the annotations
         # Add the worker demographics
         annotations = annotations.reset_index().merge(worker_demo, on='worker_id', how='left').set_index(annotations.index.names)
         # Remove the unknown demographics and the demographics with a NaN. And put them in a general test set.
-        annotations['general_split'] = 'train'
-        annotations.loc[((annotations['pop_label'].isnull()) | (annotations['pop_label'].str.contains('nan')) ),'general_split'] = 'test'
-        
-        return comments, annotations, worker_demo
+        annotations = annotations.replace(np.NaN, 'nan')
+        annotations.loc[((annotations['english_first_language'].str.contains('nan')) |(annotations['gender'].str.contains('nan')) | (annotations['age_group'].str.contains('nan')) | (annotations['education'].str.contains('nan')) ),'general_split'] = 1 #'test'
+        annotations = annotations.reset_index()
+        annotations['english_first_language'] = annotations['english_first_language'].replace('nan', 2)
+         # MAke the categorical data numbers
+        if mapping_categorical_protected != ():
+            for tuple_type in mapping_categorical_protected:
+                for tuple_details in tuple_type:
+                    if tuple_type.index(tuple_details) == 0:
+                        key = tuple_details
+                    else:
+                        for tuple_categories in tuple_details:
+                            annotations[key] = annotations[key].replace(tuple_categories, tuple_details.index(tuple_categories))
 
+        annotations['pop_label'] = annotations[['gender', 'age_group', 'education']].apply(lambda x: int(''.join([str(x['gender']),str(x['age_group']), str(x['education'])])), axis=1)    
+        if 'general_split' in annotations.columns.tolist():
+            annotations = annotations.drop(columns=['general_split'])      
+
+        return annotations

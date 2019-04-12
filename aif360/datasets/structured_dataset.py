@@ -121,7 +121,7 @@ class StructuredDataset(Dataset):
         self.protected_attribute_names = df_prot.columns.astype(str).tolist()
         self.protected_attributes = df_prot.values.copy()
 
-        # Infer the privileged and unprivileged values in not provided
+        # Infer the privileged and unprivileged values if not provided
         if unprivileged_protected_attributes and privileged_protected_attributes:
             self.unprivileged_protected_attributes = unprivileged_protected_attributes
             self.privileged_protected_attributes = privileged_protected_attributes
@@ -191,6 +191,17 @@ class StructuredDataset(Dataset):
             [highest_level, middle_level, lowest_level])
         df.index.name = 'instance names'
         return str(df)
+
+
+    def create_subdataset(self, list_index):
+        # List index must be the list of positions to keep
+        self.features = self.features[list_index]
+        self.labels = self.labels[list_index]
+        self.scores = self.scores[list_index]
+        self.protected_attributes = self.protected_attributes[list_index]
+        self.instance_weights = self.instance_weights[list_index]
+
+        return None
 
     # TODO: *_names checks
     def validate_dataset(self):
