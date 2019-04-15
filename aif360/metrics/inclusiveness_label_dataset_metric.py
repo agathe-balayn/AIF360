@@ -85,7 +85,7 @@ class InclusivenessLabelDatasetMetric(ClassificationMetric):
 			data, bin_col = define_fairness_bins(filtering_value, data_filtering_col, comparison_op, data, number_bins)
 			
 		else: # Demography: the bins correspond to the different types of annotators.
-			# Remove the lowest frequency demographics categories
+			# Remove the lowest frequency demographics categories.
 			if filtering_value is not None:  
 				data = data.groupby(data_filtering_col).filter(lambda x: len(x) >= filtering_value)
 			bin_col = 'NA'
@@ -196,7 +196,7 @@ def define_fairness_bins(filtering_value, data_filtering_col, comparison_op, dat
 def default_preprocessing(df):
     return df
 def empty_subjectivity_dataset_wrapper():
-    annotations_empty = pd.DataFrame(data={'rev_id':[0,0], 'worker_id':[0,0], 'toxicity':[0,1], 'toxicity_score':[0.0, 1.0], 'gender':['nan', 'nan'], 'english_first_language':[2, 2], 'age_group':['nan', 'nan'], 'education':['nan', 'nan'], 'pop_label':['1 1 1', '1 1 1'], 'MV':[0, 1]})
+    annotations_empty = pd.DataFrame(data={'rev_id':[0,0], 'worker_id':[0,0], 'toxicity':[0,1], 'toxicity_score':[0.0, 1.0], 'gender':['nan', 'nan'], 'english_first_language':[2, 2], 'age_group':['nan', 'nan'], 'education':['nan', 'nan'], 'pop_label':['1 1 1', '1 1 1'], 'GT':[0, 1], 'MV':[0, 1]})
     mapping_categorical_protected=(('gender',('female','male', 'other', 'nan')), ('age_group',('Under 18', '18-30', '30-45', '45-60', 'Over 60', 'nan')), ('education',('none', 'hs', 'some', 'bachelors', 'masters', 'professional', 'doctorate', 'nan')))
     for tuple_type in mapping_categorical_protected:
         for tuple_details in tuple_type:
@@ -207,7 +207,7 @@ def empty_subjectivity_dataset_wrapper():
                     annotations_empty[key] = annotations_empty[key].replace(tuple_categories, tuple_details.index(tuple_categories))
     annotations_empty['pop_label'] = annotations_empty[['gender', 'age_group', 'education']].apply(lambda x: int(''.join([str(x['gender']),str(x['age_group']), str(x['education'])])), axis=1)    
 
-    annotations_empty = annotations_empty[['rev_id', 'worker_id', 'toxicity', 'toxicity_score', 'gender', 'english_first_language', 'age_group', 'education', 'pop_label', 'MV']]
+    annotations_empty = annotations_empty[['rev_id', 'worker_id', 'toxicity', 'toxicity_score', 'gender', 'english_first_language', 'age_group', 'education', 'pop_label', 'GT', 'MV']]
 
     protected_attribute_names=['gender', 'english_first_language', 'age_group', 'education', 'rev_id', 'worker_id', 'pop_label']
     privileged_classes=None
@@ -218,7 +218,7 @@ def empty_subjectivity_dataset_wrapper():
     na_values=[]
     custom_preprocessing=default_preprocessing
     metadata={'label_maps': [{1.0: 'Toxic', 0.0: 'Non-toxic'}],}
-    dataset = SubjectivityDataset(annotations_empty, 'toxicity',
+    dataset = SubjectivityDataset(annotations_empty, 'toxicity', 'GT',
                  protected_attribute_names=protected_attribute_names, privileged_classes=privileged_classes,
                  instance_weights_name=instance_weights_name, categorical_features=categorical_features,
                  features_to_keep=features_to_keep, features_to_drop=features_to_drop, na_values=na_values,

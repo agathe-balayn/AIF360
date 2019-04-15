@@ -22,7 +22,7 @@ class SubjectivityDataset(BinaryLabelDataset):
     """
 
 
-    def __init__(self, df, label_name, #favorable_classes,
+    def __init__(self, df, label_name, ground_truth_name, #favorable_classes,
                  protected_attribute_names, privileged_classes=None,
                  instance_weights_name='', categorical_features=[],
                  features_to_keep=[], features_to_drop=[], na_values=[],
@@ -37,7 +37,7 @@ class SubjectivityDataset(BinaryLabelDataset):
             label_name = 'labels'
         # Compute the different scores later used for computing the fairness metrics.
         #print("Compute the scores describing the dataset, used for the evaluation metric.")
-        df = self.compute_scores(df, label_name)
+        df = self.compute_scores(df, ground_truth_name)
         protected_attribute_names = protected_attribute_names + ['sample_agreement', 'annotator_ADR', 'popularity_percentage']
         
         # 3. Drop unrequested columns

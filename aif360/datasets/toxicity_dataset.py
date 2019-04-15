@@ -70,6 +70,7 @@ class ToxicityDataset(SubjectivityDataset):
         protected_attribute_names = protected_attribute_names + ['pop_label']
         # Data labels and properties computation
         super(ToxicityDataset, self).__init__(df=annotations, label_name=label_name,
+            ground_truth_name = 'GT',
             protected_attribute_names=protected_attribute_names,
             instance_weights_name=instance_weights_name,
             categorical_features=categorical_features,
@@ -107,4 +108,6 @@ class ToxicityDataset(SubjectivityDataset):
         if 'general_split' in annotations.columns.tolist():
             annotations = annotations.drop(columns=['general_split'])      
 
+        # Create the ground truth
+        annotations['GT'] = annotations['toxicity']
         return annotations
