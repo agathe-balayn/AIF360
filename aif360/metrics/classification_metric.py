@@ -267,8 +267,14 @@ class ClassificationMetric(BinaryLabelDatasetMetric):
         N = self.num_negatives(privileged=privileged)
 
         return dict(
-            TPR=TP / P, TNR=TN / N, FPR=FP / N, FNR=FN / P,
-            GTPR=GTP / P, GTNR=GTN / N, GFPR=GFP / N, GFNR=GFN / P,
+            TPR=TP / P if P > 0.0 else np.nan, 
+            TNR=TN / N if N > 0.0 else np.nan, 
+            FPR=FP / N if N > 0.0 else np.nan, 
+            FNR=FN / P if P > 0.0 else np.nan,
+            GTPR=GTP / P if P > 0.0 else np.nan, 
+            GTNR=GTN / N if N > 0.0 else np.nan, 
+            GFPR=GFP / N if N > 0.0 else np.nan, 
+            GFNR=GFN / P if P > 0.0 else np.nan,
             PPV=TP / (TP+FP) if (TP+FP) > 0.0 else np.float64(0.0),
             NPV=TN / (TN+FN) if (TN+FN) > 0.0 else np.float64(0.0),
             FDR=FP / (FP+TP) if (FP+TP) > 0.0 else np.float64(0.0),
