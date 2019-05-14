@@ -192,17 +192,6 @@ class StructuredDataset(Dataset):
         df.index.name = 'instance names'
         return str(df)
 
-
-    def create_subdataset(self, list_index):
-        # List index must be the list of positions to keep
-        self.features = self.features[list_index]
-        self.labels = self.labels[list_index]
-        self.scores = self.scores[list_index]
-        self.protected_attributes = self.protected_attributes[list_index]
-        self.instance_weights = self.instance_weights[list_index]
-
-        return None
-
     # TODO: *_names checks
     def validate_dataset(self):
         """Error checking and type validation.
